@@ -1,0 +1,192 @@
+{%load static%}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Leaflet and Google Form GPS Data Collection</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta property="og:title" content="Leaflet and Google Form GPS Data Collection" />
+  <meta property="og:type" content="website" />
+  <meta property="og:description" content="A basic web map." />
+  <!--leaflet-->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/leaflet.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/leaflet.js"></script>
+  <!--Plugins-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-hash/0.2.1/leaflet-hash.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.fullscreen/1.4.1/Control.FullScreen.min.css" rel='stylesheet' />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.fullscreen/1.4.1/Control.FullScreen.min.js"></script>
+  <script src='https://cdn.jsdelivr.net/leaflet.locatecontrol/0.49.0/L.Control.Locate.min.js'></script>
+  <link href='https://cdn.jsdelivr.net/leaflet.locatecontrol/0.49.0/L.Control.Locate.css' rel='stylesheet' />
+  <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js'></script>
+  <!--Fonts-->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
+  <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,700,900' rel='stylesheet' type='text/css'>
+  <script   src="https://code.jquery.com/jquery-2.2.3.min.js"   integrity="sha256-a23g1Nt4dtEYOj7bR+vTu7+T8VP13humZFBJNIYoEJo="   crossorigin="anonymous"></script>
+  <script src='https://api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.2.0/leaflet-omnivore.min.js'></script>
+  <script src='{% static "assets/geojson-tiles/geojson-vt-dev.js"%}'></script>
+  <script src='{% static "assets/geojson-tiles/L.CanvasTiles.js"%}'></script>
+  <script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-pip/v0.1.0/leaflet-pip.min.js'></script>
+  <style>
+    body {
+        padding: 0;
+        margin: 0;
+    }
+    html, body, #map {
+        height: 100%;
+        width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+<!--Fullscreen map-->
+<div id="map"></div>
+  <script>
+
+    var osm, ortho, topo;
+
+    osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    });
+
+    topo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community',
+      maxZoom: 20,
+      maxNativeZoom: 18,
+    });
+
+    ortho = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+	     attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+     });
+/////////////////////////////
+//----EDIT THIS SECTION----//
+/////////////////////////////
+    var center = [39, -83],
+      zoom = 17,
+      basemap = osm,
+      layerName = "testLayer",
+      layerUrl = "test.geojson",
+      layerType = "polygon",
+      fscreen = true;
+/////////////////////////////
+//----STOP EDITING---------//
+/////////////////////////////
+
+    var map = L.map('map', {
+       center: center,
+       zoom: zoom,
+       fullscreenControl: fscreen,
+       }).setView([ 39.0788,-83.0752 ], 17);
+        
+     //Initialize the map
+
+    basemap.addTo(map);
+		var hash = new L.Hash(map);
+
+    layerName = new L.geoJson(null, {
+      onEachFeature: function(feature, layer) {
+        layer.bindPopup(feature.properties.Description)
+      }
+    });
+
+    layerControl = new L.control.layers({"Streets": osm, "Ortho": ortho, "Topo": topo}).addTo(map);
+
+    var parcels = L.geoJson();
+    var tileData = omnivore.topojson("{% static 'data/parcels.topojson'%}", null, parcels);
+     
+
+    tileData.on('ready', function() {
+      console.log('parcel data ready');
+      map.fitBounds(parcels.getBounds());
+      $(".blank").fadeOut();
+      
+      
+          //end point in polygon
+      //geojson-vt
+        var tileOptions = {
+        maxZoom: 20, // max zoom to preserve detail on
+        tolerance: 7, // 5 simplification tolerance (higher means simpler)
+        extent: 4096, //4096, // 4096 tile extent (both width and height)
+        buffer: 64, // 64 default 64tile buffer on each side
+        debug: 0, // logging level (0 to disable, 1 or 2)
+        indexMaxZoom: 20, // 0 max zoom in the initial tile index
+        indexMaxPoints: 100000, // 100000 max number of points per tile in the index
+        };
+        var data = parcels.toGeoJSON();
+        var tileIndex = geojsonvt(data, tileOptions);
+      //take json output from geojson-vt and draw it with the now depricated (in leaflet-beta) L.canvasTiles and code from here - http://blog.sumbera.com/2015/05/31/geojson-vt-on-leaflet/
+        var tileLayer = L.canvasTiles().params({
+          debug: false,
+          padding: 50
+          }).drawing(drawingOnCanvas)
+        var pad = 0;
+
+    
+        tileLayer.setZIndex(15);
+        tileLayer.addTo(map);
+
+        function drawingOnCanvas(canvasOverlay, params) {
+
+        var bounds = params.bounds;
+        params.tilePoint.z = params.zoom;
+
+        var ctx = params.canvas.getContext('2d');
+        ctx.globalCompositeOperation = 'source-over';
+
+
+        console.log('getting tile z' + params.tilePoint.z + '-' + params.tilePoint.x + '-' + params.tilePoint.y);
+
+        var tile = tileIndex.getTile(params.tilePoint.z, params.tilePoint.x, params.tilePoint.y);
+        if (!tile) {
+          console.log('tile empty');
+          return;
+        }
+
+        ctx.clearRect(0, 0, params.canvas.width, params.canvas.height);
+
+        var features = tile.features;
+
+        ctx.strokeStyle = 'red';
+
+
+        for (var i = 0; i < features.length; i++) {
+          var feature = features[i],
+            type = feature.type;
+
+          ctx.fillStyle = feature.tags.color ? feature.tags.color : 'transparent';
+          ctx.beginPath();
+
+          for (var j = 0; j < feature.geometry.length; j++) {
+            var geom = feature.geometry[j];
+
+            if (type === 1) {
+              ctx.arc(geom[0] * ratio + pad, geom[1] * ratio + pad, 2, 0, 2 * Math.PI, false);
+              continue;
+            }
+
+            for (var k = 0; k < geom.length; k++) {
+              var p = geom[k];
+              var extent = 4096;
+
+              var x = p[0] / extent * 256;
+              var y = p[1] / extent * 256;
+              if (k) ctx.lineTo(x + pad, y + pad);
+              else ctx.moveTo(x + pad, y + pad);
+            }
+          }
+
+          if (type === 3 || type === 1) ctx.fill();
+          ctx.stroke();
+          }
+
+      };
+      });
+
+
+
+  </script>
+
+</body>
+
+</html>
